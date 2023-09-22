@@ -55,7 +55,8 @@ resource "google_cloudfunctions_function" "function" {
   runtime     = "python311"
   region      = var.region
 
-  available_memory_mb = 128
+  available_memory_mb = 256
+  timeout             = 120
 
   source_archive_bucket = google_storage_bucket.function_bucket.name
   source_archive_object = google_storage_bucket_object.zip.name
