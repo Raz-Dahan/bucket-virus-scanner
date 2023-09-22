@@ -16,6 +16,10 @@ variable "target_bucket" {
   default = "raz-artifacts"
 }
 
+variable "function_name" {
+  default = "virus_scanner"
+}
+
 # You can add more target buckets
 # variable "target_bucket2" {
 #     default = "${var.project_id}-packages"
@@ -23,7 +27,7 @@ variable "target_bucket" {
 
 
 resource "google_storage_bucket" "function_bucket" {
-  name     = "${var.project_id}-function"
+  name     = "${var.project_id}-${var.function_name}"
   location = var.region
 }
 
@@ -41,10 +45,15 @@ resource "google_storage_bucket_object" "zip" {
   bucket = google_storage_bucket.function_bucket.name
 }
 
+data "google_secret_manager_secret_version" "virustotal_api" {
+  secret = "VirusTotal_API_KEY" # Replace with your secret's name
+}
+
 resource "google_cloudfunctions_function" "function" {
-  name        = "bucket_virus_scanner"
+  name        = var.function_name
   description = "Virus scanner and remover for bucket's uploaded files"
-  runtime     = "Python311"
+  runtime     = "python311"
+  region      = var.region
 
   available_memory_mb = 128
 
@@ -53,7 +62,7 @@ resource "google_cloudfunctions_function" "function" {
 
   event_trigger {
     event_type = "google.storage.object.finalize"
-    resource   = "${var.project_id}-input"
+    resource   = var.target_bucket
   }
 
   # You can add more triggers to work on more target buckets
@@ -61,6 +70,10 @@ resource "google_cloudfunctions_function" "function" {
   #     event_type = "google.storage.object.finalize"
   #     resource   = "${var.project_id}-input"
   #   }
+
+  environment_variables = {
+    VirusTotal_API_KEY = data.google_secret_manager_secret_version.virustotal_api.secret_data
+  }
 
   entry_point = "virus_scanner"
 }
